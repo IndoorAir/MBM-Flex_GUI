@@ -1,7 +1,6 @@
 from fastapi import APIRouter
 import pyjson5
 from pydantic import BaseModel
-from multiroom_model.json_parser import RoomChemistryJSONBuilder, WindJsonBuilder
 from .json_error_to_english import pretty_json_error
 
 router = APIRouter()
@@ -26,7 +25,6 @@ def room(payload: InputModel):
 
     This endpoint performs two layers of validation:
       1. Parse the input using pyjson5 (allows comments, trailing commas, etc.)
-      2. Validate the resulting dict using RoomChemistryJSONBuilder
 
     Returns
     -------
@@ -39,21 +37,13 @@ def room(payload: InputModel):
     # Step 1: JSON parsing (with helpful error messages)
     try:
         data = pyjson5.loads(input_string)
+        return {"success": True}
     except Exception as e:
         return {
             "success": False,
             "message": pretty_json_error(input_string, e)
         }
 
-    # Step 2: Domain‑specific validation
-    try:
-        RoomChemistryJSONBuilder.from_dict(data)
-        return {"success": True}
-    except Exception as e:
-        return {
-            "success": False,
-            "message": str(e)
-        }
 
 
 @router.post("/wind")
@@ -63,7 +53,6 @@ def wind(payload: InputModel):
 
     Follows the same two‑stage validation process as /room:
       1. Parse JSON using pyjson5
-      2. Validate using WindJsonBuilder
 
     Returns
     -------
@@ -76,18 +65,10 @@ def wind(payload: InputModel):
     # Step 1: JSON parsing
     try:
         data = pyjson5.loads(input_string)
+        return {"success": True}
     except Exception as e:
         return {
             "success": False,
             "message": pretty_json_error(input_string, e)
         }
 
-    # Step 2: Domain‑specific validation
-    try:
-        WindJsonBuilder.from_dict(data)
-        return {"success": True}
-    except Exception as e:
-        return {
-            "success": False,
-            "message": str(e)
-        }

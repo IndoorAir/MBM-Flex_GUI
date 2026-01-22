@@ -1,7 +1,6 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-from collections import namedtuple
-from multiroom_model.transport_paths import paths_through_building, Side
+from .transport_paths import paths_through_building, Room, Aperture, outsides
 from typing import List
 
 router = APIRouter()
@@ -16,19 +15,6 @@ class InputModel(BaseModel):
     apertures: List[InputAperture]
 
 
-# Mock rooms and apertures
-# Importing the full Room/Aperture classes are surplus if we only generate transport paths
-MockRoom = namedtuple("MockRoom", ["name"])
-MockAperture = namedtuple("MockAperture", ["origin", "destination", "id"])
-
-
-# Mapping of outside labels to the solver's Side enum
-outsides = {
-    "Front": Side.Front,
-    "Left": Side.Left,
-    "Back": Side.Back,
-    "Right": Side.Right,
-}
 
 
 @router.post("/paths")
@@ -60,7 +46,7 @@ def paths(payload: InputModel):
         if a.origin in rooms:
             origin = rooms[a.origin]
         else:
-            origin = MockRoom(name=a.origin)
+            origin = Room(name=a.origin)
             rooms[a.origin] = origin
 
         # Destination may be a room or an outside direction
@@ -69,11 +55,11 @@ def paths(payload: InputModel):
         elif a.destination in rooms:
             destination = rooms[a.destination]
         else:
-            destination = MockRoom(name=a.destination)
+            destination = Room(name=a.destination)
             rooms[a.destination] = destination
 
         # Create aperture edge
-        apertures[a.id] = MockAperture(
+        apertures[a.id] = Aperture(
             origin=origin,
             destination=destination,
             id=a.id
