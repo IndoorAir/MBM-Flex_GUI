@@ -38,7 +38,105 @@ export class LoadSaveManager {
      *       - aperture connections
      *       - UI metadata for rooms and apertures
      */
-    save() {        
+    async save() {    
+        if ("showDirectoryPicker" in window) {
+            await this.save_using_directory_picker()
+        } else {
+            // fallback if the browser does not allow picking a directory
+            this.save_to_downloads_folder()
+        }  
+    }  
+    /**
+     * Allows the user to select a directory - browser dependent
+     */
+    async save_using_directory_picker() {        
+        const roomFiles = {};
+        const aperturesList = [];
+        const ui_data = {};
+
+        const dirHandle = await window.showDirectoryPicker();
+
+        
+        const writes = Array.from(State.rooms.values()).map(room => {
+            const label = room.label;
+            const filename = `room_${label}.json`;
+
+            return (async () => {
+                const fileHandle = await dirHandle.getFileHandle(filename, {
+                    create: true
+                });
+
+                const writable = await fileHandle.createWritable();
+                await writable.write(
+                    typeof room.data === "string"
+                        ? room.data
+                        : JSON.stringify(room.data, null, 2)
+                );
+                await writable.close();
+
+                roomFiles[label] = filename;
+                ui_data[label] = room.ui;
+            })();
+        });
+
+        await Promise.all(writes);
+        
+        // --- Save apertures ---
+        const ui_aperture_data = [];
+
+        State.apertures.forEach(ap => {
+            const rooms = ap.rooms;
+            ui_aperture_data.push(ap.ui);
+
+            // Grounded apertures connect a room to a side (Front/Back/Left/Right)
+            if (ap.grounded) {
+                const originRoom = this.getRoomLabel(rooms[0]);
+                const destination = rooms[1];
+
+                aperturesList.push({
+                    origin: originRoom,
+                    destination: destination,
+                    area: ap.area
+                });
+            }
+            // Normal apertures connect two rooms
+            else if (rooms.length === 2) {
+                const originRoom = this.getRoomLabel(rooms[0]);
+                const destRoom = this.getRoomLabel(rooms[1]);
+
+                aperturesList.push({
+                    origin: originRoom,
+                    destination: destRoom,
+                    area: ap.area
+                });
+            }
+        });
+
+        ui_data["apertures"] = ui_aperture_data;
+
+        // Create (or overwrite) master file in chosen folder
+        const fileHandle = await dirHandle.getFileHandle("layout_master.json", {
+            create: true
+        });
+        const writable = await fileHandle.createWritable();
+        await writable.write(
+            JSON.stringify(
+                {
+                    rooms: roomFiles,
+                    apertures: aperturesList,
+                    ui: ui_data
+                },
+                null,
+                2
+            )
+        );
+        await writable.close();
+    }
+
+    /**
+     * in case the browser does  not allow the user to select a directory - fallback case
+     */
+    save_to_downloads_folder() {        
         const roomFiles = {};
         const aperturesList = [];
         const ui_data = {};
